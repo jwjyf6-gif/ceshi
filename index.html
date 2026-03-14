@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>黄金矿工 - Gold Miner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #F5DEB3 100%);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 30%, #DEB887 30%, #D2691E 100%);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .ui-panel {
+            background: rgba(0,0,0,0.6);
+            color: #FFD700;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            border: 2px solid #FFD700;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #gameOverScreen {
+            display: none;
+        }
+
+        .title {
+            font-size: 48px;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .btn {
+            background: linear-gradient(180deg, #FFD700 0%, #FFA500 100%);
+            color: #333;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .nickname-input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 3px solid #FFD700;
+            border-radius: 25px;
+            text-align: center;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        .score-display {
+            color: #fff;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .instruction {
+            color: #ccc;
+            font-size: 14px;
+            margin-top: 20px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .hearts {
+            display: flex;
+            gap: 5px;
+        }
+
+        .heart {
+            color: #ff4444;
+            font-size: 20px;
+        }
+
+        .combo {
+            position: absolute;
+            color: #FF6347;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+            pointer-events: none;
+            animation: comboAnim 1s ease-out forwards;
+        }
+
+        @keyframes comboAnim {
+            0% { transform: scale(0.5) translateY(0); opacity: 0; }
+            20% { transform: scale(1.2) translateY(-20px); opacity: 1; }
+            100% { transform: scale(1) translateY(-50px); opacity: 0; }
+        }
+
+        .hidden { display: none !important; }
+
+        /* 排行榜样式 */
+        .leaderboard-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+            max-height: 250px;
+            overflow-y: auto;
+            width: 90%;
+            max-width: 320px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .leaderboard-title {
+            color: #8B4513;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #FFD700;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.8);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+        }
+
+        /* 滚动条样式 */
+        .leaderboard-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .leaderboard-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .leaderboard-container::-webkit-scrollbar-thumb {
+            background: #FFD700;
+            border-radius: 3px;
+        }
+
+        /* 游戏结束界面布局 */
+        #gameOverScreen {
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        #gameOverScreen .title {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="ui">
+            <div class="ui-panel">
+                <div>分数: <span id="score">0</span></div>
+            </div>
+            <div class="ui-panel">
+                <div>等级: <span id="level">1</span></div>
+            </div>
+            <div class="ui-panel">
+                <div class="hearts" id="hearts">
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                    <span class="heart">❤️</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="startScreen">
+            <h1 class="title">⛏️ 黄金矿工</h1>
+            <input type="text" class="nickname-input" id="nickname" placeholder="输入昵称（可选）" maxlength="10">
+            <button class="btn" onclick="startGame()">开始游戏</button>
+            <div class="instruction">
+                <p>点击屏幕释放钩爪</p>
+                <p>抓住金矿得分，失误3次游戏结束</p>
+                <p>连击可获得更高分数！</p>
+            </div>
+        </div>
+
+        <div id="gameOverScreen">
+            <h1 class="title">游戏结束</h1>
+            <div class="score-display">最终得分: <span id="finalScore">0</span></div>
+            <div class="score-display">最高得分: <span id="highScore">0</span></div>
+
+            <div class="leaderboard-container">
+                <div class="leaderboard-title">🏆 排行榜 TOP10</div>
+                <div id="leaderboardList"></div>
+            </div>
+
+            <button class="btn" onclick="restartGame()">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 响应式画布大小
+        function resizeCanvas() {
+            const maxWidth = Math.min(window.innerWidth - 20, 400);
+            const maxHeight = Math.min(window.innerHeight - 100, 600);
+            canvas.width = maxWidth;
+            canvas.height = maxHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 游戏状态
+        let gameState = 'start'; // start, playing, gameover
+        let score = 0;
+        let highScore = localStorage.getItem('goldMinerHighScore') || 0;
+        let level = 1;
+        let lives = 3;
+        let combo = 0;
+        let lastHitTime = 0;
+        let currentNickname = '';
+
+        // 排行榜数据（从 localStorage 读取）
+        let leaderboard = JSON.parse(localStorage.getItem('goldMinerLeaderboard')) || [];
+
+        // 钩爪配置
+        const hook = {
+            x: 0,
+            y: 80,
+            angle: 0,
+            length: 50,
+            maxLength: 0,
+            state: 'swinging', // swinging, extending, retracting
+            speed: 6,
+            clawSize: 12
+        };
+
+        // 瞄准指针配置
+        const pointer = {
+            angle: 0,
+            swingSpeed: 0.004,
+            swingRange: Math.PI / 2.5,
+            radius: 60
+        };
+
+        // 金矿数组
+        let golds = [];
+
+        // 金矿类型
+        const goldTypes = {
+            normal: { color: '#FFD700', size: 25, score: 10, probability: 0.6 },
+            small: { color: '#DAA520', size: 18, score: 15, probability: 0.25 },
+            big: { color: '#FFA500', size: 35, score: 25, probability: 0.1 },
+            diamond: { color: '#00CED1', size: 20, score: 50, probability: 0.04, type: 'diamond' },
+            bomb: { color: '#333', size: 22, score: 0, probability: 0.01, type: 'bomb' }
+        };
+
+        // 粒子效果
+        let particles = [];
+
+        // 初始化游戏
+        function init() {
+            hook.x = canvas.width / 2;
+            hook.maxLength = canvas.height - 100;
+            initClouds();
+            spawnGold();
+            gameLoop();
+        }
+
+        // 生成金矿
+        function spawnGold() {
+            golds = [];
+            const goldCount = Math.min(3 + Math.floor(level / 2), 6);
+
+            for (let i = 0; i < goldCount; i++) {
+                const rand = Math.random();
+                let type = 'normal';
+                let cumProb = 0;
+
+                for (const [key, config] of Object.entries(goldTypes)) {
+                    cumProb += config.probability;
+                    if (rand < cumProb) {
+                        type = key;
+                        break;
+                    }
+                }
+
+                const config = goldTypes[type];
+                golds.push({
+                    x: 50 + Math.random() * (canvas.width - 100),
+                    y: 180 + Math.random() * (canvas.height - 220),
+                    ...config,
+                    caught: false
+                });
+            }
+        }
+
+        // 更新游戏
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // 更新瞄准指针（摆动）
+            if (hook.state === 'swinging') {
+                pointer.angle = Math.sin(Date.now() * pointer.swingSpeed) * pointer.swingRange;
+            }
+
+            // 更新钩爪
+            if (hook.state === 'extending') {
+                hook.length += hook.speed;
+
+                // 检查边界（使用指针的角度作为钩子的发射角度）
+                const actualHookAngle = -pointer.angle;
+                const endX = hook.x + Math.sin(actualHookAngle) * hook.length;
+                const endY = hook.y + Math.cos(actualHookAngle) * hook.length;
+
+                // 检查是否抓到金矿
+                let caught = false;
+                for (let i = golds.length - 1; i >= 0; i--) {
+                    const gold = golds[i];
+                    const dx = endX - gold.x;
+                    const dy = endY - gold.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < gold.size + hook.clawSize) {
+                        caught = true;
+                        if (gold.type === 'bomb') {
+                            // 炸弹效果
+                            createExplosion(gold.x, gold.y);
+                            loseLife();
+                            golds.splice(i, 1);
+                        } else {
+                            // 抓到金矿
+                            gold.caught = true;
+                            hook.caughtGold = gold;
+                            addScore(gold.score);
+                        }
+                        hook.state = 'retracting';
+                        break;
+                    }
+                }
+
+                // 到达边界或最大长度
+                if (endX < 0 || endX > canvas.width || endY > canvas.height || hook.length > hook.maxLength) {
+                    if (!caught) {
+                        hook.state = 'retracting';
+                    }
+                }
+            } else if (hook.state === 'retracting') {
+                hook.length -= hook.speed;
+
+                if (hook.length <= 40) {
+                    hook.length = 40;
+                    hook.state = 'swinging';
+
+                    if (hook.caughtGold) {
+                        // 成功带回金矿
+                        const gold = hook.caughtGold;
+                        createParticles(gold.x, gold.y, gold.color);
+
+                        const index = golds.indexOf(gold);
+                        if (index > -1) golds.splice(index, 1);
+
+                        hook.caughtGold = null;
+
+                        // 检查是否清空所有金矿
+                        if (golds.length === 0) {
+                            spawnGold();
+                        }
+                    } else {
+                        // 未抓到任何金矿
+                        loseLife();
+                    }
+                }
+            }
+
+            // 更新被抓金矿位置
+            if (hook.caughtGold) {
+                const actualHookAngle = -pointer.angle;
+                hook.caughtGold.x = hook.x + Math.sin(actualHookAngle) * hook.length;
+                hook.caughtGold.y = hook.y + Math.cos(actualHookAngle) * hook.length;
+            }
+
+            // 更新粒子
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                p.vy += 0.2;
+                return p.life > 0;
+            });
+
+            // 更新难度
+            updateDifficulty();
+        }
+
+        // 增加分数
+        function addScore(points) {
+            const now = Date.now();
+            if (now - lastHitTime < 3000) {
+                combo++;
+            } else {
+                combo = 1;
+            }
+            lastHitTime = now;
+
+            const multiplier = Math.min(1 + combo * 0.2, 3);
+            const finalPoints = Math.floor(points * multiplier);
+            score += finalPoints;
+
+            // 显示连击
+            if (combo > 1) {
+                showCombo(combo);
+            }
+
+            updateUI();
+        }
+
+        // 显示连击
+        function showCombo(comboCount) {
+            const comboEl = document.createElement('div');
+            comboEl.className = 'combo';
+            comboEl.textContent = `${comboCount}连击! x${(1 + comboCount * 0.2).toFixed(1)}`;
+            comboEl.style.left = canvas.width / 2 + 'px';
+            comboEl.style.top = canvas.height / 2 + 'px';
+            document.getElementById('gameContainer').appendChild(comboEl);
+            setTimeout(() => comboEl.remove(), 1000);
+        }
+
+        // 失去生命
+        function loseLife() {
+            lives--;
+            combo = 0;
+            updateUI();
+
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        // 更新难度
+        function updateDifficulty() {
+            const newLevel = Math.min(Math.floor(score / 100) + 1, 10);
+            if (newLevel !== level) {
+                level = newLevel;
+                pointer.swingSpeed = 0.004 + level * 0.0005;
+            }
+        }
+
+        // 创建粒子
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10 - 5,
+                    life: 1,
+                    color: color
+                });
+            }
+        }
+
+        // 创建爆炸效果
+        function createExplosion(x, y) {
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    life: 1.5,
+                    color: '#FF4444',
+                    size: 6
+                });
+            }
+        }
+
+        // 云朵
+        let clouds = [];
+        function initClouds() {
+            clouds = [];
+            for (let i = 0; i < 5; i++) {
+                clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: 20 + Math.random() * 80,
+                    size: 30 + Math.random() * 40,
+                    speed: 0.2 + Math.random() * 0.3
+                });
+            }
+        }
+
+        // 绘制游戏
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制天空背景
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.35);
+            skyGradient.addColorStop(0, '#4A90E2');
+            skyGradient.addColorStop(0.5, '#87CEEB');
+            skyGradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height * 0.35);
+
+            // 绘制云朵
+            clouds.forEach(cloud => {
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.size) cloud.x = -cloud.size;
+                drawCloud(cloud.x, cloud.y, cloud.size);
+            });
+
+            // 绘制地面背景
+            const groundGradient = ctx.createLinearGradient(0, canvas.height * 0.35, 0, canvas.height);
+            groundGradient.addColorStop(0, '#D2B48C');
+            groundGradient.addColorStop(0.3, '#C19A6B');
+            groundGradient.addColorStop(0.7, '#8B7355');
+            groundGradient.addColorStop(1, '#654321');
+            ctx.fillStyle = groundGradient;
+            ctx.fillRect(0, canvas.height * 0.35, canvas.width, canvas.height * 0.65);
+
+            // 绘制地面纹理（石头和纹理）
+            drawGroundTexture();
+
+            // 绘制矿工
+            drawMiner();
+
+            // 确定钩爪的位置和角度
+            // 指针角度直接对应钩爪发射角度
+            // pointer.angle: -swingRange(指针左) -> +swingRange(指针右)
+            // hookAngle: 正值向左，负值向右
+            const hookAngle = pointer.angle; // 指针左(负)对应钩爪左(正)? 不对，需要反转
+            // 重新映射: pointer.angle 范围 [-swingRange, +swingRange]
+            // -swingRange (负) 应该对应钩爪向右 (负角度)
+            // +swingRange (正) 应该对应钩爪向左 (正角度)
+            // 实际上不需要反转，只需要确保指针和钩爪同向
+            // 但Canvas角度：负角度逆时针(左)，正角度顺时针(右)
+            // 所以 pointer.angle 为正(右) -> hookAngle 为负(右) ?
+            // 让我重新理清：
+            // 当指针在左边时 (pointer.angle = +swingRange)，我们希望钩爪向左发射
+            // 当指针在右边时 (pointer.angle = -swingRange)，我们希望钩爪向右发射
+            // 在Canvas中：
+            //   angle = 0 是向下
+            //   angle > 0 是向右 (顺时针)
+            //   angle < 0 是向左 (逆时针)
+            // 所以：
+            //   pointer.angle = +swingRange (指针左) -> hookAngle = -swingRange (钩爪左)
+            //   pointer.angle = -swingRange (指针右) -> hookAngle = +swingRange (钩爪右)
+            // 这看起来需要反转！
+            const actualHookAngle = -pointer.angle;
+
+            let endX, endY, displayAngle;
+            if (hook.state === 'swinging') {
+                // 摆动状态：钩爪垂直向下，指针在半圆背板上摆动
+                endX = hook.x;
+                endY = hook.y + hook.length;
+                displayAngle = 0;
+            } else {
+                // 发射/收回状态：钩爪沿指针指示的角度倾斜
+                endX = hook.x + Math.sin(actualHookAngle) * hook.length;
+                endY = hook.y + Math.cos(actualHookAngle) * hook.length;
+                displayAngle = actualHookAngle;
+            }
+
+            // 绘制瞄准指针（仅在摆动状态时显示，在钩爪下方）
+            if (hook.state === 'swinging') {
+                drawPointer();
+            }
+
+            // 绘制绳子
+            drawRope(endX, endY, displayAngle);
+
+            // 绘制金矿（在钩爪前面，但在被抓时跟随钩爪）
+            golds.filter(g => !g.caught).forEach(gold => drawGold(gold));
+
+            // 绘制钩爪
+            drawClaw(endX, endY, displayAngle);
+
+            // 绘制被抓住的金矿
+            if (hook.caughtGold) {
+                drawGold(hook.caughtGold);
+            }
+
+            // 绘制粒子
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size || 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // 绘制云朵
+        function drawCloud(x, y, size) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.35, y - size * 0.25, size * 0.45, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.7, y, size * 0.55, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.35, y + size * 0.15, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 绘制地面纹理
+        function drawGroundTexture() {
+            // 添加一些随机石头
+            const seed = Math.floor(Date.now() / 10000);
+            for (let i = 0; i < 15; i++) {
+                const x = ((i * 73 + seed * 37) % canvas.width);
+                const y = canvas.height * 0.4 + ((i * 31) % (canvas.height * 0.5));
+                const size = 3 + (i % 5);
+
+                ctx.fillStyle = 'rgba(101, 67, 33, 0.3)';
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 地面裂缝纹理
+            ctx.strokeStyle = 'rgba(101, 67, 33, 0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 8; i++) {
+                const startX = (i * 137) % canvas.width;
+                const startY = canvas.height * 0.5 + ((i * 53) % (canvas.height * 0.4));
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(startX + 30, startY + 10);
+                ctx.stroke();
+            }
+        }
+
+        // 绘制瞄准指针（量角器在钩爪下方，开口向下）
+        function drawPointer() {
+            // 量角器位置在钩爪下方
+            const centerX = hook.x;
+            const centerY = hook.y + hook.length + 35; // 在钩爪下方
+            const radius = pointer.radius;
+
+            ctx.save();
+
+            // === 绘制量角器刻度弧 ===
+            // 刻度弧从左边(180°)到右边(0°)，开口向下
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, Math.PI, 0, false); // 顺时针，开口向下
+            ctx.stroke();
+
+            // === 绘制刻度线 ===
+            for (let i = 0; i <= 180; i += 10) {
+                // i=0 在右边(0°)，i=180 在左边(180°)，顺时针绘制开口向下
+                const angle = -i * Math.PI / 180; // 0=右, -180=左 (负数用于向下开口)
+                const isMajor = i % 30 === 0;
+                const tickLen = isMajor ? 12 : 6;
+                const tickWidth = isMajor ? 3 : 1;
+
+                ctx.lineWidth = tickWidth;
+                ctx.strokeStyle = isMajor ? 'rgba(255, 215, 0, 0.9)' : 'rgba(255, 215, 0, 0.6)';
+
+                // 刻度线从弧向内
+                const innerR = radius - tickLen;
+                ctx.beginPath();
+                ctx.moveTo(
+                    centerX + Math.cos(angle) * radius,
+                    centerY - Math.sin(angle) * radius  // y轴向上为负，所以这里用负号
+                );
+                ctx.lineTo(
+                    centerX + Math.cos(angle) * innerR,
+                    centerY - Math.sin(angle) * innerR
+                );
+                ctx.stroke();
+            }
+
+            // === 摆动标记（沿着刻度弧移动）===
+            // pointer.angle: -swingRange(左) ~ +swingRange(右)
+            // 映射到角度: 180°(左) ~ 0°(右)
+            const normalizedAngle = (pointer.angle + pointer.swingRange) / (pointer.swingRange * 2);
+            // 0=右(0°), 1=左(-180°)
+            const markerAngle = -normalizedAngle * Math.PI; // 0=右, -PI=左
+
+            const markerX = centerX + Math.cos(markerAngle) * radius;
+            const markerY = centerY - Math.sin(markerAngle) * radius;
+
+            // 绘制摆动标记（圆点+发光效果）
+            // 外圈发光
+            ctx.fillStyle = 'rgba(255, 100, 100, 0.4)';
+            ctx.beginPath();
+            ctx.arc(markerX, markerY, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 主体圆点
+            const markerGradient = ctx.createRadialGradient(
+                markerX - 3, markerY - 3, 0,
+                markerX, markerY, 8
+            );
+            markerGradient.addColorStop(0, '#FF6B6B');
+            markerGradient.addColorStop(0.5, '#FF4444');
+            markerGradient.addColorStop(1, '#CC0000');
+            ctx.fillStyle = markerGradient;
+            ctx.beginPath();
+            ctx.arc(markerX, markerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 边框
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 高光
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(markerX - 2, markerY - 2, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // === 中心参考点 ===
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 绘制绳子
+        function drawRope(endX, endY, angle) {
+            // 绳子阴影
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(hook.x + 2, hook.y + 2);
+            ctx.lineTo(endX + 2, endY + 2);
+            ctx.stroke();
+
+            // 主绳子（金属链条效果）
+            const segments = Math.floor(hook.length / 8);
+            for (let i = 0; i < segments; i++) {
+                const t1 = i / segments;
+                const t2 = (i + 0.5) / segments;
+
+                const x1 = hook.x + Math.sin(angle) * hook.length * t1;
+                const y1 = hook.y + Math.cos(angle) * hook.length * t1;
+                const x2 = hook.x + Math.sin(angle) * hook.length * t2;
+                const y2 = hook.y + Math.cos(angle) * hook.length * t2;
+
+                // 链条节
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                // 链条高光
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x1 - 1, y1 - 1);
+                ctx.lineTo(x2 - 1, y2 - 1);
+                ctx.stroke();
+            }
+        }
+
+        // 绘制矿工
+        function drawMiner() {
+            const x = hook.x;
+            const y = hook.y - 40;
+
+            // 身体阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.beginPath();
+            ctx.ellipse(x + 3, y + 48, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 身体（更细致的绘制）
+            const bodyGradient = ctx.createLinearGradient(x - 18, y, x + 18, y);
+            bodyGradient.addColorStop(0, '#654321');
+            bodyGradient.addColorStop(0.5, '#8B4513');
+            bodyGradient.addColorStop(1, '#654321');
+            ctx.fillStyle = bodyGradient;
+            ctx.fillRect(x - 18, y + 5, 36, 40);
+
+            // 衣服纹理（背带裤效果）
+            ctx.fillStyle = '#5D3A1A';
+            ctx.fillRect(x - 15, y + 5, 8, 40);
+            ctx.fillRect(x + 7, y + 5, 8, 40);
+            ctx.fillRect(x - 15, y + 25, 30, 6);
+
+            // 金色扣子
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(x - 11, y + 28, 3, 0, Math.PI * 2);
+            ctx.arc(x + 11, y + 28, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 脖子
+            ctx.fillStyle = '#FDBCB4';
+            ctx.fillRect(x - 6, y - 2, 12, 8);
+
+            // 头（带阴影层次）
+            const headGradient = ctx.createRadialGradient(x - 3, y - 12, 0, x, y - 5, 18);
+            headGradient.addColorStop(0, '#FFE4C4');
+            headGradient.addColorStop(1, '#FDBCB4');
+            ctx.fillStyle = headGradient;
+            ctx.beginPath();
+            ctx.arc(x, y - 8, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 耳朵
+            ctx.fillStyle = '#FDBCB4';
+            ctx.beginPath();
+            ctx.arc(x - 16, y - 8, 5, 0, Math.PI * 2);
+            ctx.arc(x + 16, y - 8, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.ellipse(x - 5, y - 10, 4, 5, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + 5, y - 10, 4, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(x - 5, y - 10, 2.5, 0, Math.PI * 2);
+            ctx.arc(x + 5, y - 10, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛高光
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(x - 6, y - 12, 1.5, 0, Math.PI * 2);
+            ctx.arc(x + 4, y - 12, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 鼻子
+            ctx.fillStyle = '#E8B4A0';
+            ctx.beginPath();
+            ctx.arc(x, y - 4, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 嘴巴
+            ctx.strokeStyle = '#C48E74';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y - 2, 6, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+
+            // 帽子（更精致的设计）
+            const hatGradient = ctx.createLinearGradient(x, y - 35, x, y - 15);
+            hatGradient.addColorStop(0, '#A0522D');
+            hatGradient.addColorStop(0.5, '#8B4513');
+            hatGradient.addColorStop(1, '#654321');
+
+            // 帽子主体
+            ctx.fillStyle = hatGradient;
+            ctx.beginPath();
+            ctx.moveTo(x - 20, y - 18);
+            ctx.lineTo(x + 20, y - 18);
+            ctx.lineTo(x + 14, y - 38);
+            ctx.quadraticCurveTo(x, y - 42, x - 14, y - 38);
+            ctx.closePath();
+            ctx.fill();
+
+            // 帽子条纹
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x - 18, y - 22);
+            ctx.lineTo(x + 18, y - 22);
+            ctx.stroke();
+
+            // 帽子前檐（带弧度）
+            const brimGradient = ctx.createLinearGradient(x, y - 18, x, y - 10);
+            brimGradient.addColorStop(0, '#8B4513');
+            brimGradient.addColorStop(1, '#5D3A1A');
+            ctx.fillStyle = brimGradient;
+            ctx.beginPath();
+            ctx.ellipse(x, y - 15, 24, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 帽子小灯
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(x + 15, y - 25, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFACD';
+            ctx.beginPath();
+            ctx.arc(x + 15, y - 25, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 手臂（操作钩爪）
+            ctx.fillStyle = '#FDBCB4';
+            ctx.beginPath();
+            ctx.ellipse(x + 22, y + 15, 6, 12, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 手
+            ctx.fillStyle = '#FDBCB4';
+            ctx.beginPath();
+            ctx.arc(x + 28, y + 8, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 绘制钩爪
+        function drawClaw(x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // 连接环
+            ctx.fillStyle = '#666';
+            ctx.beginPath();
+            ctx.arc(0, -5, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 金属连接点
+            const metalGradient = ctx.createLinearGradient(-8, 0, 8, 0);
+            metalGradient.addColorStop(0, '#555');
+            metalGradient.addColorStop(0.5, '#888');
+            metalGradient.addColorStop(1, '#555');
+            ctx.fillStyle = metalGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 左爪臂（带金属质感）
+            const armGradient = ctx.createLinearGradient(-10, 0, -5, 20);
+            armGradient.addColorStop(0, '#777');
+            armGradient.addColorStop(0.5, '#999');
+            armGradient.addColorStop(1, '#666');
+            ctx.fillStyle = armGradient;
+            ctx.beginPath();
+            ctx.moveTo(-3, 2);
+            ctx.quadraticCurveTo(-8, 12, -12, 20);
+            ctx.lineTo(-8, 22);
+            ctx.quadraticCurveTo(-4, 14, -1, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 右爪臂
+            const armGradient2 = ctx.createLinearGradient(5, 0, 10, 20);
+            armGradient2.addColorStop(0, '#777');
+            armGradient2.addColorStop(0.5, '#999');
+            armGradient2.addColorStop(1, '#666');
+            ctx.fillStyle = armGradient2;
+            ctx.beginPath();
+            ctx.moveTo(3, 2);
+            ctx.quadraticCurveTo(8, 12, 12, 20);
+            ctx.lineTo(8, 22);
+            ctx.quadraticCurveTo(4, 14, 1, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 左爪子（带弧度）
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(-12, 22, 8, Math.PI * 0.8, Math.PI * 0.2, false);
+            ctx.stroke();
+
+            // 右爪子
+            ctx.beginPath();
+            ctx.arc(12, 22, 8, Math.PI * 0.8, Math.PI * 1.4, true);
+            ctx.stroke();
+
+            // 爪子尖端高光
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-12, 22, 8, Math.PI * 0.9, Math.PI * 0.3, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(12, 22, 8, Math.PI * 0.7, Math.PI * 1.3, true);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // 绘制金矿
+        function drawGold(gold) {
+            const { x, y, size, color, type } = gold;
+
+            // 阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x + 3, y + size * 0.7, size * 0.8, size * 0.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (type === 'bomb') {
+                // 炸弹绘制（黑色球体）
+                const bombGradient = ctx.createRadialGradient(x - 3, y - 3, 0, x, y, size);
+                bombGradient.addColorStop(0, '#666');
+                bombGradient.addColorStop(0.6, '#333');
+                bombGradient.addColorStop(1, '#111');
+
+                ctx.fillStyle = bombGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 炸弹引线
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, y - size + 3);
+                ctx.quadraticCurveTo(x + 5, y - size - 8, x + 8, y - size - 5);
+                ctx.stroke();
+
+                // 火花
+                ctx.fillStyle = '#FF6347';
+                ctx.beginPath();
+                ctx.arc(x + 8, y - size - 6, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(x + 8, y - size - 6, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 骷髅标志
+                ctx.fillStyle = '#444';
+                ctx.beginPath();
+                ctx.arc(x, y - 2, size * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#222';
+                ctx.beginPath();
+                ctx.arc(x - 3, y - 3, 2, 0, Math.PI * 2);
+                ctx.arc(x + 3, y - 3, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (type === 'diamond') {
+                // 钻石绘制（多面体效果）
+                const diamondGradient = ctx.createLinearGradient(x - size, y - size, x + size, y + size);
+                diamondGradient.addColorStop(0, '#E0FFFF');
+                diamondGradient.addColorStop(0.3, '#00CED1');
+                diamondGradient.addColorStop(0.7, '#20B2AA');
+                diamondGradient.addColorStop(1, '#008B8B');
+
+                ctx.fillStyle = diamondGradient;
+                ctx.beginPath();
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x + size * 0.9, y);
+                ctx.lineTo(x, y + size);
+                ctx.lineTo(x - size * 0.9, y);
+                ctx.closePath();
+                ctx.fill();
+
+                // 钻石切面
+                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x, y + size);
+                ctx.moveTo(x - size * 0.9, y);
+                ctx.lineTo(x + size * 0.9, y);
+                ctx.stroke();
+
+                // 上切面
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x + size * 0.5, y - size * 0.3);
+                ctx.lineTo(x, y);
+                ctx.lineTo(x - size * 0.5, y - size * 0.3);
+                ctx.closePath();
+                ctx.fill();
+
+                // 闪烁效果
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.beginPath();
+                ctx.arc(x - size * 0.3, y - size * 0.3, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else {
+                // 金矿绘制（不规则形状）
+                drawNugget(x, y, size, color);
+            }
+        }
+
+        // 绘制金块（不规则形状）
+        function drawNugget(x, y, size, baseColor) {
+            // 创建不规则形状
+            const points = [];
+            const numPoints = 8;
+            for (let i = 0; i < numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 2;
+                const radiusVariation = 0.7 + Math.random() * 0.6;
+                points.push({
+                    x: x + Math.cos(angle) * size * radiusVariation,
+                    y: y + Math.sin(angle) * size * radiusVariation
+                });
+            }
+
+            // 主体渐变
+            const gradient = ctx.createRadialGradient(x - size * 0.2, y - size * 0.2, 0, x, y, size);
+            gradient.addColorStop(0, lightenColor(baseColor, 30));
+            gradient.addColorStop(0.4, baseColor);
+            gradient.addColorStop(0.8, darkenColor(baseColor, 20));
+            gradient.addColorStop(1, darkenColor(baseColor, 40));
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                const cpX = (points[i].x + points[(i + 1) % points.length].x) / 2;
+                const cpY = (points[i].y + points[(i + 1) % points.length].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, cpX, cpY);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // 高光区域
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(x - size * 0.3, y - size * 0.3, size * 0.25, size * 0.15, -0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 金属光泽条纹
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x - size * 0.4, y + size * 0.2);
+            ctx.lineTo(x + size * 0.2, y - size * 0.4);
+            ctx.stroke();
+
+            // 边缘高光
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        // 颜色辅助函数
+        function lightenColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.min(255, (num >> 16) + amt);
+            const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+            const B = Math.min(255, (num & 0x0000FF) + amt);
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+
+        function darkenColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.max(0, (num >> 16) - amt);
+            const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+            const B = Math.max(0, (num & 0x0000FF) - amt);
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+
+        // 游戏循环
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 开始游戏
+        function startGame() {
+            const nickname = document.getElementById('nickname').value.trim();
+            currentNickname = nickname || '匿名矿工';
+            if (nickname) {
+                localStorage.setItem('goldMinerNickname', nickname);
+            }
+
+            document.getElementById('startScreen').style.display = 'none';
+            gameState = 'playing';
+            score = 0;
+            level = 1;
+            lives = 3;
+            combo = 0;
+            hook.length = 50;
+            hook.state = 'swinging';
+            pointer.swingSpeed = 0.004;
+
+            spawnGold();
+            updateUI();
+        }
+
+        // 保存排行榜记录
+        function saveToLeaderboard(nickname, score) {
+            const record = {
+                nickname: nickname || '匿名矿工',
+                score: score,
+                date: new Date().toLocaleDateString('zh-CN'),
+                time: Date.now()
+            };
+
+            // 添加新记录
+            leaderboard.push(record);
+
+            // 按分数排序，取前10名
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 10);
+
+            // 保存到 localStorage
+            localStorage.setItem('goldMinerLeaderboard', JSON.stringify(leaderboard));
+        }
+
+        // 渲染排行榜
+        function renderLeaderboard() {
+            const listEl = document.getElementById('leaderboardList');
+            if (!listEl) return;
+
+            if (leaderboard.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无记录，快来成为第一名！</div>';
+                return;
+            }
+
+            listEl.innerHTML = leaderboard.map((record, index) => {
+                const isTop3 = index < 3;
+                const medals = ['🥇', '🥈', '🥉'];
+                const rankIcon = isTop3 ? medals[index] : `<span style="display:inline-block;width:24px;text-align:center">${index + 1}</span>`;
+                const highlightStyle = isTop3 ? `style="background:rgba(255,215,0,0.2);border-left:3px solid #FFD700;"` : '';
+
+                return `<div class="leaderboard-item" ${highlightStyle}>
+                    <span style="font-size:18px;margin-right:8px;">${rankIcon}</span>
+                    <span style="flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${record.nickname}</span>
+                    <span style="color:#FFD700;font-weight:bold;margin-right:10px;">${record.score}分</span>
+                    <span style="color:#999;font-size:12px;">${record.date}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // 游戏结束
+        function gameOver() {
+            gameState = 'gameover';
+
+            // 保存到排行榜
+            saveToLeaderboard(currentNickname, score);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('goldMinerHighScore', highScore);
+            }
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('highScore').textContent = highScore;
+            renderLeaderboard();
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+
+        // 重新开始
+        function restartGame() {
+            document.getElementById('gameOverScreen').style.display = 'none';
+            startGame();
+        }
+
+        // 更新UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+
+            const heartsEl = document.getElementById('hearts');
+            heartsEl.innerHTML = '❤️'.repeat(lives);
+        }
+
+        // 点击事件
+        function handleInput(e) {
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
+            if (gameState === 'playing' && hook.state === 'swinging') {
+                hook.state = 'extending';
+            }
+        }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', handleInput, { passive: false });
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameState === 'playing' && hook.state === 'swinging') {
+                hook.state = 'extending';
+            }
+        });
+
+        // 加载昵称
+        const savedNickname = localStorage.getItem('goldMinerNickname');
+        if (savedNickname) {
+            document.getElementById('nickname').value = savedNickname;
+        }
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
